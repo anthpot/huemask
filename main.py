@@ -1,4 +1,5 @@
-"""掩膜标注工具 v1.0 入口 / Mask Annotation Tool v1.0 entry point"""
+"""HueMask v1.0 entry point — Region-wise HSV Mask Annotation Tool
+HueMask v1.0 入口 — 分块HSV掩膜标注工具"""
 import sys
 from PyQt5 import QtCore, QtWidgets
 

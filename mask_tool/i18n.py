@@ -11,8 +11,8 @@ _lang = DEFAULT_LANG
 
 STRINGS = {
     "app_title": {
-        "en": "Mask Annotation Tool v%s",
-        "zh": "掩膜标注工具 v%s"},
+        "en": "HueMask v%s — Region-wise HSV Mask Annotation",
+        "zh": "HueMask v%s — 分块HSV掩膜标注工具"},
     "err_title": {"en": "Error", "zh": "错误"},
     "info_title": {"en": "Info", "zh": "提示"},
     "unsaved_title": {"en": "Unsaved changes", "zh": "未保存"},

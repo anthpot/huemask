@@ -1,4 +1,4 @@
-# Mask Annotation Tool v1.0 / 掩膜标注工具 v1.0
+# HueMask v1.0 — Region-wise HSV Mask Annotation Tool / 分块HSV掩膜标注工具
 
 **Region-wise HSV-assisted labeling: draw a rough box, tune color thresholds with live preview, and get pixel-accurate masks — block by block.**
 **分块 HSV 辅助标注：粗略框一个区域，拖滑块实时预览颜色命中，回车即得像素级掩膜——一块一块来。**
@@ -9,7 +9,7 @@
 
 ## English
 
-A lightweight PyQt5 + OpenCV desktop tool for creating and correcting semantic-segmentation masks. Built for refining masks produced by models such as SAM2, and equally usable for labeling from scratch.
+**HueMask** is a lightweight PyQt5 + OpenCV desktop tool for creating and correcting semantic-segmentation masks. Built for refining masks produced by models such as SAM2, and equally usable for labeling from scratch.
 
 ### ✨ Highlights
 
@@ -93,7 +93,7 @@ python -m pytest tests
 
 ## 中文
 
-一个轻量的 PyQt5 + OpenCV 桌面工具，用于制作和修正语义分割掩膜。适合对模型（如 SAM2）生成的掩膜做人工精修，也可以从零开始标注。
+**HueMask** 是一个轻量的 PyQt5 + OpenCV 桌面工具，用于制作和修正语义分割掩膜。适合对模型（如 SAM2）生成的掩膜做人工精修，也可以从零开始标注。
 
 ### ✨ 亮点
 
@@ -175,6 +175,23 @@ python -m pytest tests
 
 ---
 
+## Citation / 引用
+
+If HueMask is useful in your research, please cite it (GitHub's "Cite this repository" button uses [CITATION.cff](CITATION.cff)):
+如果 HueMask 对您的研究有帮助，请引用（GitHub 的 "Cite this repository" 按钮读取 [CITATION.cff](CITATION.cff)）：
+
+```bibtex
+@software{huemask2026,
+  author  = {anthpome},
+  title   = {HueMask: Region-wise HSV Mask Annotation Tool},
+  year    = {2026},
+  version = {1.0},
+  url     = {https://github.com/anthpome/huemask}
+}
+```
+
 ## License / 许可证
 
-MIT
+Released under the [MIT License](LICENSE): free to use, modify, and redistribute (including commercially), as long as the copyright notice is kept. Provided "as is", without warranty.
+
+本项目基于 [MIT 许可证](LICENSE)发布：可自由使用、修改和再分发（含商用），但需保留版权声明。软件按"现状"提供，不含任何担保。
