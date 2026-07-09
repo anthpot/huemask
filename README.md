@@ -21,6 +21,7 @@ The UI is bilingual: **English by default**, switchable to 中文 from the dropd
 - **Full-resolution rendering**: wheel zoom, Ctrl+left / middle-button pan; zoomed-in view shows true pixel boundaries for precise edge work
 - **Unicode/CJK path support** and high-DPI display support
 - **Configurable classes**: `class_config.json` is generated on first run; edit class names and colors freely
+- **Data folder picker**: if no data folder is found next to the tool, a dialog asks for one at startup; the "Open data folder…" button switches folders at any time
 
 ### Installation
 
@@ -38,7 +39,7 @@ pip install -r requirements.txt
    | `masks/` (or `2_掩膜/`) | initial masks (optional; single-channel PNG, pixel value = class ID, same base filename as the image) |
    | `masks_corrected/` (or `3_修正掩膜/`) | output folder for corrected masks (created automatically) |
 
-   Legacy Chinese folder names are used if present, otherwise the English names. When no mask is found a blank one is created, so the tool also works for labeling from scratch.
+   Legacy Chinese folder names are used if present, otherwise the English names. If neither is found, a folder-picker dialog opens at startup — you can also pick the images folder itself, or any folder that directly contains images. When no mask is found a blank one is created, so the tool also works for labeling from scratch.
 
 2. Run:
 
@@ -46,7 +47,9 @@ pip install -r requirements.txt
    python main.py
    ```
 
-3. Pick an image in the file list on the right → choose "(1) Target class" and "(2) Source class" → draw/paint on the image → Ctrl+S to save. Saved corrected masks are loaded in preference to the originals next time.
+   To try the bundled sample data, pick the `examples/` folder in the dialog (see [examples/README.md](examples/README.md)).
+
+3. Pick an image in the file list on the right → choose "(1) Target class" and "(2) Source class" → draw/paint on the image → Ctrl+S to save. Saved corrected masks are loaded in preference to the originals next time. Use "Open data folder…" above the file list to switch datasets.
 
 ### Shortcuts
 
@@ -101,6 +104,7 @@ python -m pytest tests
 - **全分辨率渲染**：滚轮缩放、Ctrl+左键/中键拖动平移，放大时按真实像素显示，方便精修边缘
 - **中文/Unicode 路径兼容**、高 DPI 屏幕适配
 - **类别可配置**：首次运行自动生成 `class_config.json`，可自行修改类别名与颜色
+- **数据文件夹选择**：启动时若当前目录没有数据文件夹会弹出选择对话框；「打开数据文件夹…」按钮可随时切换数据集
 
 ### 安装
 
@@ -118,7 +122,7 @@ pip install -r requirements.txt
    | `masks/`（或 `2_掩膜/`） | 原始掩膜（可选，单通道 PNG，像素值=类别 ID，文件名与原图相同） |
    | `masks_corrected/`（或 `3_修正掩膜/`） | 修正后的掩膜输出目录（自动创建） |
 
-   若存在中文旧目录（`1_图像` 等）则优先使用，否则使用英文目录名。找不到掩膜时会新建空白掩膜，因此也可用于从零标注。
+   若存在中文旧目录（`1_图像` 等）则优先使用，否则使用英文目录名。两者都没有时启动会弹出文件夹选择对话框——也可以直接选图像文件夹本身或任何存放图片的文件夹。找不到掩膜时会新建空白掩膜，因此也可用于从零标注。
 
 2. 启动：
 
@@ -126,7 +130,9 @@ pip install -r requirements.txt
    python main.py
    ```
 
-3. 在右侧文件列表选图 → 选好「① 目标类别」和「② 源类别」→ 在图上框选/涂抹 → Ctrl+S 保存。已保存的修正掩膜下次会优先加载。
+   想体验自带示例数据，在弹出的对话框中选择 `examples/` 文件夹即可（见 [examples/README.md](examples/README.md)）。
+
+3. 在右侧文件列表选图 → 选好「① 目标类别」和「② 源类别」→ 在图上框选/涂抹 → Ctrl+S 保存。已保存的修正掩膜下次会优先加载。文件列表上方的「打开数据文件夹…」按钮可随时切换数据集。
 
 ### 快捷键
 

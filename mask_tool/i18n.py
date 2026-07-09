@@ -17,12 +17,25 @@ STRINGS = {
     "info_title": {"en": "Info", "zh": "提示"},
     "unsaved_title": {"en": "Unsaved changes", "zh": "未保存"},
     "mismatch_title": {"en": "Size mismatch", "zh": "尺寸不符"},
-    "img_dir_missing": {
-        "en": "Image folder '%s' not found!",
-        "zh": "图像文件夹 '%s' 不存在！"},
     "no_images": {
         "en": "No images found in '%s'.",
         "zh": "'%s' 中没有图片。"},
+    "open_data": {
+        "en": "Open data folder…",
+        "zh": "打开数据文件夹…"},
+    "choose_data_title": {
+        "en": "Choose data folder",
+        "zh": "选择数据文件夹"},
+    "choose_data_hint": {
+        "en": ("No data folder found in the current directory.\n"
+               "Please choose a folder that contains an 'images' (or '1_图像') "
+               "subfolder, or a folder that directly contains images."),
+        "zh": ("当前目录下未找到数据文件夹。\n"
+               "请选择一个包含 'images'（或 '1_图像'）子文件夹的目录，"
+               "或直接选择存放图片的文件夹。")},
+    "no_data_in_folder": {
+        "en": "No images or 'images' subfolder found in:\n%s",
+        "zh": "该文件夹中没有图片，也没有 'images'/'1_图像' 子文件夹：\n%s"},
     "language": {"en": "Language / 语言:", "zh": "Language / 语言:"},
     "show_raw": {
         "en": "Show raw image (no mask)",

@@ -5,13 +5,15 @@ __pycache__/
 venv/
 .venv/
 
-# 数据集（体积大，不入库）/ datasets (too large for the repo)
-images/
-masks/
-masks_corrected/
-1_图像/
-2_掩膜/
-3_修正掩膜/
+# 数据集（体积大，不入库；examples/ 中的示例数据保留）
+# datasets (too large for the repo; sample data under examples/ is kept)
+/images/
+/masks/
+/masks_corrected/
+/1_图像/
+/2_掩膜/
+/3_修正掩膜/
+examples/masks_corrected/
 
 # 运行期生成的类别配置(首次运行自动生成默认值)
 # class config generated at runtime (defaults written on first run)

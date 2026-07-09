@@ -15,12 +15,11 @@ from mask_tool.mask_ops import (
 )
 from mask_tool.image_canvas import ImageCanvas
 
-# Directory names: prefer legacy Chinese folders if present, else English ones
-# 目录名：优先使用中文旧目录（若存在），否则使用英文目录
-if os.path.isdir("1_图像"):
-    IMG_DIR, SRC_MASK_DIR, OUT_MASK_DIR = "1_图像", "2_掩膜", "3_修正掩膜"
-else:
-    IMG_DIR, SRC_MASK_DIR, OUT_MASK_DIR = "images", "masks", "masks_corrected"
+# Data folder sets: legacy Chinese names take priority, then English names
+# 数据目录组：优先中文旧目录，其次英文目录
+DIR_SETS = (("1_图像", "2_掩膜", "3_修正掩膜"),
+            ("images", "masks", "masks_corrected"))
+IMAGE_EXTS = (".jpg", ".jpeg", ".png")
 
 CLASS_CONFIG_PATH = "class_config.json"
 # 1.0 = render at native resolution; zooming is handled by the canvas (fit / wheel)
@@ -32,17 +31,30 @@ def natural_key(s):
     return [int(t) if t.isdigit() else t.lower() for t in re.split(r'(\d+)', s)]
 
 
+def resolve_data_dirs(root):
+    """Return (img_dir, src_mask_dir, out_mask_dir) under `root`, or None
+    if no known image folder exists there.
+    在 root 下解析数据目录组；找不到已知图像目录时返回 None。"""
+    for names in DIR_SETS:
+        if os.path.isdir(os.path.join(root, names[0])):
+            return tuple(os.path.join(root, n) for n in names)
+    return None
+
+
+def dir_has_images(path):
+    """True if `path` directly contains image files.
+    path 下直接含有图片文件时为 True。"""
+    try:
+        return any(f.lower().endswith(IMAGE_EXTS) for f in os.listdir(path))
+    except OSError:
+        return False
+
+
 class MaskEditor(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
         load_lang()
         self.valid_startup = True
-        if not os.path.isdir(IMG_DIR):
-            QtWidgets.QMessageBox.critical(
-                self, tr("err_title"), tr("img_dir_missing") % IMG_DIR)
-            self.valid_startup = False
-            return
-        os.makedirs(OUT_MASK_DIR, exist_ok=True)
 
         self.class_config = load_class_config(CLASS_CONFIG_PATH)
         self.ids = sorted(self.class_config.keys())
@@ -52,9 +64,10 @@ class MaskEditor(QtWidgets.QWidget):
             for cid, c in self.class_config.items()
         }
 
-        self.file_list = sorted(
-            [f for f in os.listdir(IMG_DIR) if f.lower().endswith((".jpg", ".jpeg", ".png"))],
-            key=natural_key)
+        self.img_dir = None
+        self.src_mask_dir = None
+        self.out_mask_dir = None
+        self.file_list = []
         self.index = 0
         self.raw_image = None      # full-resolution BGR / 全分辨率 BGR
         self.raw_hsv = None        # full-resolution HSV / 全分辨率 HSV
@@ -75,11 +88,13 @@ class MaskEditor(QtWidgets.QWidget):
         self._init_ui()
         self._retranslate()
 
-        if not self.file_list:
-            QtWidgets.QMessageBox.warning(
-                self, tr("info_title"), tr("no_images") % IMG_DIR)
-        else:
-            self.file_list_widget.setCurrentRow(0)  # triggers load_image / 触发 load_image
+        # Try the current directory first; otherwise ask for a data folder.
+        # 先在当前目录找数据文件夹，找不到则弹出选择对话框。
+        dirs = resolve_data_dirs(os.getcwd())
+        if dirs is None:
+            dirs = self._ask_data_dirs(show_hint=True)
+        if dirs is not None:
+            self._set_data_dirs(dirs)
 
     # ---------- UI ----------
     def _init_ui(self):
@@ -203,6 +218,9 @@ class MaskEditor(QtWidgets.QWidget):
         layout.addLayout(ctrl, 2)
 
         right = QtWidgets.QVBoxLayout()
+        self.btn_open_dir = QtWidgets.QPushButton()
+        self.btn_open_dir.clicked.connect(self._on_open_dir)
+        right.addWidget(self.btn_open_dir)
         self.files_lbl = QtWidgets.QLabel()
         right.addWidget(self.files_lbl)
         self.file_list_widget = QtWidgets.QListWidget()
@@ -251,9 +269,85 @@ class MaskEditor(QtWidgets.QWidget):
         self.alpha_lbl.setText(tr("opacity"))
         self.btn_undo.setText(tr("undo"))
         self.btn_save.setText(tr("save"))
+        self.btn_open_dir.setText(tr("open_data"))
         self.files_lbl.setText(tr("files"))
         self.coord_label.setText(tr("coord_empty"))
         self._update_status()
+
+    # ---------- data folders / 数据文件夹 ----------
+    def _ask_data_dirs(self, show_hint=False):
+        """Let the user pick a data folder; return a dir tuple or None if
+        cancelled. 让用户选择数据文件夹，取消时返回 None。"""
+        if show_hint:
+            QtWidgets.QMessageBox.information(
+                self, tr("info_title"), tr("choose_data_hint"))
+        while True:
+            root = QtWidgets.QFileDialog.getExistingDirectory(
+                self, tr("choose_data_title"))
+            if not root:
+                return None
+            dirs = resolve_data_dirs(root)
+            if dirs is not None:
+                return dirs
+            if dir_has_images(root):
+                base = os.path.basename(os.path.normpath(root))
+                for names in DIR_SETS:
+                    if base == names[0]:   # picked the images folder itself / 直接选中了图像文件夹
+                        parent = os.path.dirname(os.path.normpath(root))
+                        return tuple(os.path.join(parent, n) for n in names)
+                # a loose folder of images: keep outputs inside it
+                # 散装图片文件夹：掩膜目录放在其内部
+                return (root,
+                        os.path.join(root, "masks"),
+                        os.path.join(root, "masks_corrected"))
+            QtWidgets.QMessageBox.warning(
+                self, tr("err_title"), tr("no_data_in_folder") % root)
+
+    def _set_data_dirs(self, dirs):
+        """Switch to a new data folder set and reload the file list.
+        切换数据目录组并重新加载文件列表。"""
+        self.img_dir, self.src_mask_dir, self.out_mask_dir = dirs
+        os.makedirs(self.out_mask_dir, exist_ok=True)
+        try:
+            files = [f for f in os.listdir(self.img_dir)
+                     if f.lower().endswith(IMAGE_EXTS)]
+        except OSError:
+            files = []
+        self.file_list = sorted(files, key=natural_key)
+        self.index = 0
+        self.raw_image = None
+        self.raw_hsv = None
+        self.mask = None
+        self.display_image = None
+        self.hsv_region = None
+        self.undo.clear()
+        self.dirty = False
+        self.file_list_widget.blockSignals(True)
+        self.file_list_widget.clear()
+        self.file_list_widget.addItems(self.file_list)
+        self.file_list_widget.blockSignals(False)
+        if self.file_list:
+            self.file_list_widget.setCurrentRow(0)   # triggers load_image / 触发 load_image
+        else:
+            self.render_overlay()
+            self._update_status()
+            QtWidgets.QMessageBox.warning(
+                self, tr("info_title"), tr("no_images") % self.img_dir)
+
+    def _on_open_dir(self):
+        if self.dirty and self.mask is not None:
+            resp = QtWidgets.QMessageBox.question(
+                self, tr("unsaved_title"), tr("unsaved_q"),
+                QtWidgets.QMessageBox.Save | QtWidgets.QMessageBox.Discard
+                | QtWidgets.QMessageBox.Cancel,
+                QtWidgets.QMessageBox.Save)
+            if resp == QtWidgets.QMessageBox.Cancel:
+                return
+            if resp == QtWidgets.QMessageBox.Save:
+                self.save_current()
+        dirs = self._ask_data_dirs()
+        if dirs is not None:
+            self._set_data_dirs(dirs)
 
     # ---------- slots / 槽 ----------
     def _on_lang_changed(self, idx):
@@ -385,10 +479,10 @@ class MaskEditor(QtWidgets.QWidget):
         self._update_status()
 
     def save_current(self):
-        if self.mask is None or not self.file_list:
+        if self.mask is None or not self.file_list or self.out_mask_dir is None:
             return
         base = os.path.splitext(self.file_list[self.index])[0] + ".png"
-        out_path = os.path.join(OUT_MASK_DIR, base)
+        out_path = os.path.join(self.out_mask_dir, base)
         if not imwrite_unicode(out_path, self.mask):
             QtWidgets.QMessageBox.critical(
                 self, tr("err_title"), tr("save_failed") % out_path)
@@ -402,7 +496,7 @@ class MaskEditor(QtWidgets.QWidget):
         if not self.file_list or not (0 <= self.index < len(self.file_list)):
             return
         fname = self.file_list[self.index]
-        img = imread_unicode(os.path.join(IMG_DIR, fname), cv2.IMREAD_COLOR)
+        img = imread_unicode(os.path.join(self.img_dir, fname), cv2.IMREAD_COLOR)
         if img is None:
             QtWidgets.QMessageBox.critical(
                 self, tr("err_title"), tr("cannot_read") % fname)
@@ -414,8 +508,8 @@ class MaskEditor(QtWidgets.QWidget):
         # Prefer the corrected mask, then the original mask, else all zeros
         # 优先加载已修正版，否则原始掩膜，否则全 0
         base = os.path.splitext(fname)[0] + ".png"
-        out_path = os.path.join(OUT_MASK_DIR, base)
-        src_path = os.path.join(SRC_MASK_DIR, base)
+        out_path = os.path.join(self.out_mask_dir, base)
+        src_path = os.path.join(self.src_mask_dir, base)
         if os.path.exists(out_path):
             mask = imread_unicode(out_path, cv2.IMREAD_UNCHANGED)
         elif os.path.exists(src_path):
