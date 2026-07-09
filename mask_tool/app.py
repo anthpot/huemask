@@ -88,13 +88,14 @@ class MaskEditor(QtWidgets.QWidget):
         self._init_ui()
         self._retranslate()
 
-        # Try the current directory first; otherwise ask for a data folder.
-        # 先在当前目录找数据文件夹，找不到则弹出选择对话框。
+        # Try the current directory; if nothing is found just show a hint in
+        # the status bar — no dialogs at startup.
+        # 在当前目录找数据文件夹；找不到只在状态栏提示，启动时不弹窗。
         dirs = resolve_data_dirs(os.getcwd())
-        if dirs is None:
-            dirs = self._ask_data_dirs(show_hint=True)
         if dirs is not None:
             self._set_data_dirs(dirs)
+        else:
+            self._update_status()
 
     # ---------- UI ----------
     def _init_ui(self):
@@ -275,12 +276,9 @@ class MaskEditor(QtWidgets.QWidget):
         self._update_status()
 
     # ---------- data folders / 数据文件夹 ----------
-    def _ask_data_dirs(self, show_hint=False):
+    def _ask_data_dirs(self):
         """Let the user pick a data folder; return a dir tuple or None if
         cancelled. 让用户选择数据文件夹，取消时返回 None。"""
-        if show_hint:
-            QtWidgets.QMessageBox.information(
-                self, tr("info_title"), tr("choose_data_hint"))
         while True:
             root = QtWidgets.QFileDialog.getExistingDirectory(
                 self, tr("choose_data_title"))
@@ -331,8 +329,6 @@ class MaskEditor(QtWidgets.QWidget):
         else:
             self.render_overlay()
             self._update_status()
-            QtWidgets.QMessageBox.warning(
-                self, tr("info_title"), tr("no_images") % self.img_dir)
 
     def _on_open_dir(self):
         if self.dirty and self.mask is not None:
@@ -510,14 +506,14 @@ class MaskEditor(QtWidgets.QWidget):
         base = os.path.splitext(fname)[0] + ".png"
         out_path = os.path.join(self.out_mask_dir, base)
         src_path = os.path.join(self.src_mask_dir, base)
+        created_blank = False
         if os.path.exists(out_path):
             mask = imread_unicode(out_path, cv2.IMREAD_UNCHANGED)
         elif os.path.exists(src_path):
             mask = imread_unicode(src_path, cv2.IMREAD_UNCHANGED)
         else:
             mask = None
-            QtWidgets.QMessageBox.information(
-                self, tr("info_title"), tr("mask_not_found") % base)
+            created_blank = True
 
         if mask is None:
             mask = np.zeros((h, w), dtype=np.uint8)
@@ -539,6 +535,8 @@ class MaskEditor(QtWidgets.QWidget):
         self.dirty = False
         self.render_overlay()
         self._update_status()
+        if created_blank:   # status-bar note instead of a popup / 状态栏提示，不弹窗
+            self.status_label.setText(tr("mask_not_found") % base)
         # Fit to window after loading (zoom resets on image switch, not on edits)
         # 新图加载后自适应窗口（仅切图时重置缩放，编辑时不重置）
         QtCore.QTimer.singleShot(0, self.canvas.fit_to_window)
@@ -577,8 +575,11 @@ class MaskEditor(QtWidgets.QWidget):
         self.canvas.set_base_pixmap(QtGui.QPixmap.fromImage(qimg))
 
     def _update_status(self):
+        if self.img_dir is None:
+            self.status_label.setText(tr("no_data_hint"))
+            return
         if not self.file_list:
-            self.status_label.setText("—")
+            self.status_label.setText(tr("no_images") % self.img_dir)
             return
         star = tr("unsaved_star") if self.dirty else ""
         self.status_label.setText("%d/%d: %s%s" %

@@ -12,8 +12,8 @@ Three synthetic images with deliberately imperfect masks, for trying out the too
 
 ## How to use / 使用方法
 
-Option 1: start the tool from the repo root and pick this `examples` folder in the dialog that appears.
-方式一：在仓库根目录启动工具，在弹出的对话框中选择本 `examples` 文件夹。
+Option 1: start the tool from the repo root, click "Open data folder…" and pick this `examples` folder.
+方式一：在仓库根目录启动工具，点击「打开数据文件夹…」按钮选择本 `examples` 文件夹。
 
 ```bash
 python main.py

@@ -26,13 +26,9 @@ STRINGS = {
     "choose_data_title": {
         "en": "Choose data folder",
         "zh": "选择数据文件夹"},
-    "choose_data_hint": {
-        "en": ("No data folder found in the current directory.\n"
-               "Please choose a folder that contains an 'images' (or '1_图像') "
-               "subfolder, or a folder that directly contains images."),
-        "zh": ("当前目录下未找到数据文件夹。\n"
-               "请选择一个包含 'images'（或 '1_图像'）子文件夹的目录，"
-               "或直接选择存放图片的文件夹。")},
+    "no_data_hint": {
+        "en": "No data folder found — click \"Open data folder…\" to choose one.",
+        "zh": "未找到数据文件夹——点击「打开数据文件夹…」选择。"},
     "no_data_in_folder": {
         "en": "No images or 'images' subfolder found in:\n%s",
         "zh": "该文件夹中没有图片，也没有 'images'/'1_图像' 子文件夹：\n%s"},
