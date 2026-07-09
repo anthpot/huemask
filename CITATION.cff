@@ -4,10 +4,10 @@ type: software
 title: "HueMask: Region-wise HSV Mask Annotation Tool"
 version: "1.0"
 date-released: "2026-07-09"
-license: MIT
+license: CC-BY-NC-SA-4.0
 authors:
-  - name: "anthpome"
-repository-code: "https://github.com/anthpome/huemask"
+  - name: "anthpot"
+repository-code: "https://github.com/anthpot/huemask"
 abstract: >-
   A lightweight PyQt5 + OpenCV desktop tool for creating and correcting
   semantic-segmentation masks. Its core workflow is region-wise HSV

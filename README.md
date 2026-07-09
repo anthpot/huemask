@@ -182,16 +182,24 @@ If HueMask is useful in your research, please cite it (GitHub's "Cite this repos
 
 ```bibtex
 @software{huemask2026,
-  author  = {anthpome},
+  author  = {anthpot},
   title   = {HueMask: Region-wise HSV Mask Annotation Tool},
   year    = {2026},
   version = {1.0},
-  url     = {https://github.com/anthpome/huemask}
+  url     = {https://github.com/anthpot/huemask}
 }
 ```
 
 ## License / 许可证
 
-Released under the [MIT License](LICENSE): free to use, modify, and redistribute (including commercially), as long as the copyright notice is kept. Provided "as is", without warranty.
+Licensed under [CC BY-NC-SA 4.0](LICENSE) (Attribution-NonCommercial-ShareAlike):
 
-本项目基于 [MIT 许可证](LICENSE)发布：可自由使用、修改和再分发（含商用），但需保留版权声明。软件按"现状"提供，不含任何担保。
+- **Attribution** — keep the copyright notice and credit the source.
+- **NonCommercial** — commercial use is **not** permitted without a separate license from the author.
+- **ShareAlike** — modified or derivative versions **must** be open-sourced under the same license.
+
+本项目采用 [CC BY-NC-SA 4.0](LICENSE)（署名-非商业性使用-相同方式共享）许可：
+
+- **署名** — 保留版权声明并注明出处；
+- **非商业** — **禁止商用**，商业授权需另行联系作者；
+- **相同方式共享** — 二次修改、演绎的版本**必须以相同协议开源**。

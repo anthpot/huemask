@@ -1,21 +1,48 @@
-MIT License
+HueMask — Region-wise HSV Mask Annotation Tool
+Copyright (c) 2026 anthpot
 
-Copyright (c) 2026 anthpome
+This work is licensed under the Creative Commons
+Attribution-NonCommercial-ShareAlike 4.0 International License
+(CC BY-NC-SA 4.0).
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+You are free to:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+  Share — copy and redistribute the material in any medium or format.
+  Adapt — remix, transform, and build upon the material.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+Under the following terms:
+
+  Attribution — You must give appropriate credit, provide a link to the
+  license, and indicate if changes were made.
+
+  NonCommercial — You may NOT use the material for commercial purposes.
+  For commercial licensing, please contact the author.
+
+  ShareAlike — If you remix, transform, or build upon the material, you
+  MUST distribute your contributions under the same license as the
+  original. In other words, modified or derivative versions must also be
+  released as open source under CC BY-NC-SA 4.0.
+
+No additional restrictions — You may not apply legal terms or
+technological measures that legally restrict others from doing anything
+the license permits.
+
+The material is provided "as is", without warranties or conditions of
+any kind, either express or implied.
+
+Full legal code:
+https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode
+
+------------------------------------------------------------------------
+
+中文摘要（以上述英文及官方法律文本为准）：
+
+本项目采用知识共享 署名-非商业性使用-相同方式共享 4.0 国际许可协议
+（CC BY-NC-SA 4.0）授权。
+
+  署名 — 使用时必须保留版权声明并注明出处及修改情况。
+  非商业性使用 — 禁止将本作品用于商业目的；商业授权请联系作者。
+  相同方式共享 — 基于本作品修改、演绎的版本，必须以相同许可协议
+  开源发布。
+
+协议全文：https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode.zh-hans
