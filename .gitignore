@@ -16,3 +16,6 @@ masks_corrected/
 # 运行期生成的类别配置(首次运行自动生成默认值)
 # class config generated at runtime (defaults written on first run)
 class_config.json
+
+# 运行期生成的语言设置 / language setting generated at runtime
+settings.json

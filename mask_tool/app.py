@@ -5,6 +5,7 @@ import numpy as np
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from mask_tool import __version__
+from mask_tool.i18n import tr, load_lang, save_lang, current_lang
 from mask_tool.io_utils import (
     imread_unicode, imwrite_unicode, load_class_config,
 )
@@ -14,19 +15,17 @@ from mask_tool.mask_ops import (
 )
 from mask_tool.image_canvas import ImageCanvas
 
-# 目录名：优先使用中文旧目录（若存在），否则使用英文目录
 # Directory names: prefer legacy Chinese folders if present, else English ones
+# 目录名：优先使用中文旧目录（若存在），否则使用英文目录
 if os.path.isdir("1_图像"):
     IMG_DIR, SRC_MASK_DIR, OUT_MASK_DIR = "1_图像", "2_掩膜", "3_修正掩膜"
 else:
     IMG_DIR, SRC_MASK_DIR, OUT_MASK_DIR = "images", "masks", "masks_corrected"
 
 CLASS_CONFIG_PATH = "class_config.json"
-# 1.0 = 按原分辨率渲染（缩放清晰）；缩放由画布的 fit/滚轮控制
 # 1.0 = render at native resolution; zooming is handled by the canvas (fit / wheel)
+# 1.0 = 按原分辨率渲染（缩放清晰）；缩放由画布的 fit/滚轮控制
 INITIAL_SCALE = 1.0
-
-APP_TITLE = "掩膜标注工具 v%s / Mask Annotation Tool v%s" % (__version__, __version__)
 
 
 def natural_key(s):
@@ -36,11 +35,11 @@ def natural_key(s):
 class MaskEditor(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
+        load_lang()
         self.valid_startup = True
         if not os.path.isdir(IMG_DIR):
             QtWidgets.QMessageBox.critical(
-                self, "错误 / Error",
-                f"图像文件夹 '{IMG_DIR}' 不存在！\nImage folder '{IMG_DIR}' not found!")
+                self, tr("err_title"), tr("img_dir_missing") % IMG_DIR)
             self.valid_startup = False
             return
         os.makedirs(OUT_MASK_DIR, exist_ok=True)
@@ -57,31 +56,30 @@ class MaskEditor(QtWidgets.QWidget):
             [f for f in os.listdir(IMG_DIR) if f.lower().endswith((".jpg", ".jpeg", ".png"))],
             key=natural_key)
         self.index = 0
-        self.raw_image = None      # 全分辨率 BGR / full-resolution BGR
-        self.raw_hsv = None        # 全分辨率 HSV / full-resolution HSV
-        self.mask = None           # 全分辨率 uint8 ID / full-resolution uint8 class IDs
-        self.display_image = None  # 显示用 BGR / BGR image used for display
+        self.raw_image = None      # full-resolution BGR / 全分辨率 BGR
+        self.raw_hsv = None        # full-resolution HSV / 全分辨率 HSV
+        self.mask = None           # full-resolution uint8 class IDs / 全分辨率 uint8 ID
+        self.display_image = None  # BGR image used for display / 显示用 BGR
         self.undo = UndoStack(maxlen=20)
         self.dirty = False
         self.target_id = self.ids[0] if self.ids else 0
-        self.source_filter = None   # None=任意 / None = any, otherwise int class id
-        self.mode = "hsv"           # 默认 HSV 过滤模式 / default to HSV filter mode
-        self.hsv_region = None      # HSV模式：待确认的框选多边形(掩膜坐标) / pending HSV polygon (mask coords)
+        self.source_filter = None   # None = any / None=任意, otherwise int class id
+        self.mode = "hsv"           # default to HSV filter mode / 默认 HSV 过滤模式
+        self.hsv_region = None      # pending HSV polygon in mask coords / HSV模式待确认框选(掩膜坐标)
 
         self.initial_scale = INITIAL_SCALE
         self.canvas = ImageCanvas()
         self.canvas.initial_scale = self.initial_scale
 
-        self.setWindowTitle(APP_TITLE)
         self.resize(1500, 800)
         self._init_ui()
+        self._retranslate()
 
         if not self.file_list:
             QtWidgets.QMessageBox.warning(
-                self, "提示 / Info",
-                f"'{IMG_DIR}' 中没有图片。\nNo images found in '{IMG_DIR}'.")
+                self, tr("info_title"), tr("no_images") % IMG_DIR)
         else:
-            self.file_list_widget.setCurrentRow(0)  # 触发 load_image / triggers load_image
+            self.file_list_widget.setCurrentRow(0)  # triggers load_image / 触发 load_image
 
     # ---------- UI ----------
     def _init_ui(self):
@@ -96,37 +94,35 @@ class MaskEditor(QtWidgets.QWidget):
         ctrl = QtWidgets.QGridLayout()
         row = 0
 
-        self.show_raw_cb = QtWidgets.QCheckBox("显示原图 / Show raw image")
+        self.lang_lbl = QtWidgets.QLabel()
+        ctrl.addWidget(self.lang_lbl, row, 0)
+        self.lang_box = QtWidgets.QComboBox()
+        self.lang_box.addItem("English", "en")
+        self.lang_box.addItem("中文", "zh")
+        self.lang_box.setCurrentIndex(0 if current_lang() == "en" else 1)
+        self.lang_box.currentIndexChanged.connect(self._on_lang_changed)
+        ctrl.addWidget(self.lang_box, row, 1)
+        row += 1
+
+        self.show_raw_cb = QtWidgets.QCheckBox()
         self.show_raw_cb.stateChanged.connect(self.render_overlay)
         ctrl.addWidget(self.show_raw_cb, row, 0)
         self.mode_box = QtWidgets.QComboBox()
-        self.mode_box.addItems([
-            "多边形填充 / Polygon fill",
-            "画笔涂抹 / Brush",
-            "HSV过滤填充 / HSV filter fill",
-        ])
+        self.mode_box.addItems(["", "", ""])   # texts set in _retranslate
         self.mode_box.currentIndexChanged.connect(self._on_mode_changed)
         ctrl.addWidget(self.mode_box, row, 1)
         row += 1
 
-        help_lbl = QtWidgets.QLabel(
-            "用法：在图上框/涂出区域 → 区域内的像素改成下面的「① 目标类别」。\n"
-            "「② 源类别」用来限定：只动原本属于某一类的像素，选「任意」=全部都改。\n"
-            "Usage: draw a region on the image → pixels inside are set to \"(1) Target class\".\n"
-            "\"(2) Source class\" restricts editing to pixels of one class; \"Any\" = change all.")
-        help_lbl.setWordWrap(True)
-        help_lbl.setStyleSheet("color: gray;")
-        ctrl.addWidget(help_lbl, row, 0, 1, 2)
+        self.help_lbl = QtWidgets.QLabel()
+        self.help_lbl.setWordWrap(True)
+        self.help_lbl.setStyleSheet("color: gray;")
+        ctrl.addWidget(self.help_lbl, row, 0, 1, 2)
         row += 1
 
-        tgt_tip = ("选区里的像素最终会被刷成这个类别。\n"
-                   "Pixels in the selection will be painted as this class.")
-        tgt_lbl = QtWidgets.QLabel("① 目标类别 / Target class:")
-        tgt_lbl.setToolTip(tgt_tip)
-        ctrl.addWidget(tgt_lbl, row, 0, 1, 2)
+        self.tgt_lbl = QtWidgets.QLabel()
+        ctrl.addWidget(self.tgt_lbl, row, 0, 1, 2)
         row += 1
         self.target_list = QtWidgets.QListWidget()
-        self.target_list.setToolTip(tgt_tip)
         for cid in self.ids:
             self.target_list.addItem(f"{cid}: {self.class_config[cid]['name']}")
         self.target_list.setCurrentRow(0)
@@ -134,23 +130,18 @@ class MaskEditor(QtWidgets.QWidget):
         ctrl.addWidget(self.target_list, row, 0, 1, 2)
         row += 1
 
-        src_lbl = QtWidgets.QLabel("② 源类别 / Source class:")
-        src_tip = ("限定只修改原本属于某一类的像素；选「任意」则区域内全部都改。\n"
-                   "例：把误标成「叶」的部分改回「穗」——① 选 穗，② 选 叶。\n"
-                   "Only pixels originally of this class are changed; \"Any\" changes all.\n"
-                   "E.g. fix leaf mislabeled as spike: set (1) to spike and (2) to leaf.")
-        src_lbl.setToolTip(src_tip)
-        ctrl.addWidget(src_lbl, row, 0)
+        self.src_lbl = QtWidgets.QLabel()
+        ctrl.addWidget(self.src_lbl, row, 0)
         self.source_box = QtWidgets.QComboBox()
-        self.source_box.setToolTip(src_tip)
-        self.source_box.addItem("任意(全部) / Any (all)", None)
+        self.source_box.addItem("", None)      # "Any" text set in _retranslate
         for cid in self.ids:
             self.source_box.addItem(f"{cid}: {self.class_config[cid]['name']}", cid)
         self.source_box.currentIndexChanged.connect(self._on_source_changed)
         ctrl.addWidget(self.source_box, row, 1)
         row += 1
 
-        ctrl.addWidget(QtWidgets.QLabel("画笔大小 / Brush size:"), row, 0)
+        self.brush_lbl = QtWidgets.QLabel()
+        ctrl.addWidget(self.brush_lbl, row, 0)
         self.brush_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
         self.brush_slider.setMinimum(1)
         self.brush_slider.setMaximum(200)
@@ -159,7 +150,7 @@ class MaskEditor(QtWidgets.QWidget):
         ctrl.addWidget(self.brush_slider, row, 1)
         row += 1
 
-        # HSV 滑块 / HSV range sliders
+        # HSV range sliders / HSV 滑块
         self.sliders = {}
         self.hsv_value_labels = {}
         for ch, maxv in zip(["H", "S", "V"], [179, 255, 255]):
@@ -180,25 +171,26 @@ class MaskEditor(QtWidgets.QWidget):
             ctrl.addLayout(hb, row, 0, 1, 2)
             row += 1
 
-        self.btn_hsv_apply = QtWidgets.QPushButton("应用HSV / Apply HSV (Enter)")
+        self.btn_hsv_apply = QtWidgets.QPushButton()
         self.btn_hsv_apply.clicked.connect(self.confirm_hsv)
         ctrl.addWidget(self.btn_hsv_apply, row, 0)
-        self.btn_hsv_cancel = QtWidgets.QPushButton("取消框选 / Cancel (Esc)")
+        self.btn_hsv_cancel = QtWidgets.QPushButton()
         self.btn_hsv_cancel.clicked.connect(self.cancel_hsv)
         ctrl.addWidget(self.btn_hsv_cancel, row, 1)
         row += 1
 
-        ctrl.addWidget(QtWidgets.QLabel("掩膜透明度 / Mask opacity:"), row, 0)
+        self.alpha_lbl = QtWidgets.QLabel()
+        ctrl.addWidget(self.alpha_lbl, row, 0)
         self.alpha_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
         self.alpha_slider.setMinimum(0); self.alpha_slider.setMaximum(100); self.alpha_slider.setValue(50)
         self.alpha_slider.valueChanged.connect(self.render_overlay)
         ctrl.addWidget(self.alpha_slider, row, 1)
         row += 1
 
-        self.btn_undo = QtWidgets.QPushButton("撤销 / Undo (Ctrl+Z)")
+        self.btn_undo = QtWidgets.QPushButton()
         self.btn_undo.clicked.connect(self.do_undo)
         ctrl.addWidget(self.btn_undo, row, 0)
-        self.btn_save = QtWidgets.QPushButton("保存 / Save (Ctrl+S)")
+        self.btn_save = QtWidgets.QPushButton()
         self.btn_save.clicked.connect(self.save_current)
         ctrl.addWidget(self.btn_save, row, 1)
         row += 1
@@ -211,43 +203,74 @@ class MaskEditor(QtWidgets.QWidget):
         layout.addLayout(ctrl, 2)
 
         right = QtWidgets.QVBoxLayout()
-        right.addWidget(QtWidgets.QLabel("文件列表 / Files:"))
+        self.files_lbl = QtWidgets.QLabel()
+        right.addWidget(self.files_lbl)
         self.file_list_widget = QtWidgets.QListWidget()
         self.file_list_widget.addItems(self.file_list)
         self.file_list_widget.currentRowChanged.connect(self._on_file_changed)
         right.addWidget(self.file_list_widget)
-        self.coord_label = QtWidgets.QLabel("坐标 / XY: ( , )")
+        self.coord_label = QtWidgets.QLabel()
         self.coord_label.setAlignment(QtCore.Qt.AlignCenter)
         right.addWidget(self.coord_label)
         layout.addLayout(right, 1)
 
-        # 信号 / signals
+        # signals / 信号
         self.canvas.polygon_committed.connect(self.on_polygon_committed)
         self.canvas.brush_committed.connect(self.on_brush_committed)
         self.canvas.mouse_pos.connect(self.on_mouse_pos)
 
-        # 快捷键 / shortcuts
+        # shortcuts / 快捷键
         QtWidgets.QShortcut(QtGui.QKeySequence("Ctrl+Z"), self, self.do_undo)
         QtWidgets.QShortcut(QtGui.QKeySequence("Ctrl+S"), self, self.save_current)
         QtWidgets.QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_Return), self, self.confirm_hsv)
         QtWidgets.QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_Enter), self, self.confirm_hsv)
         QtWidgets.QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_Escape), self, self.cancel_hsv)
 
-        # 默认进入 HSV 过滤模式 / default to HSV filter mode
+        # default to HSV filter mode / 默认进入 HSV 过滤模式
         self.mode_box.setCurrentIndex(2)
 
-    # ---------- 槽 / slots ----------
+    def _retranslate(self):
+        """Apply the current language to every widget.
+        把当前语言应用到所有控件。"""
+        self.setWindowTitle(tr("app_title") % __version__)
+        self.lang_lbl.setText(tr("language"))
+        self.show_raw_cb.setText(tr("show_raw"))
+        for i, key in enumerate(("mode_polygon", "mode_brush", "mode_hsv")):
+            self.mode_box.setItemText(i, tr(key))
+        self.help_lbl.setText(tr("help_text"))
+        self.tgt_lbl.setText(tr("target_label"))
+        self.tgt_lbl.setToolTip(tr("target_tip"))
+        self.target_list.setToolTip(tr("target_tip"))
+        self.src_lbl.setText(tr("source_label"))
+        self.src_lbl.setToolTip(tr("source_tip"))
+        self.source_box.setToolTip(tr("source_tip"))
+        self.source_box.setItemText(0, tr("source_any"))
+        self.brush_lbl.setText(tr("brush_size"))
+        self.btn_hsv_apply.setText(tr("apply_hsv"))
+        self.btn_hsv_cancel.setText(tr("cancel_sel"))
+        self.alpha_lbl.setText(tr("opacity"))
+        self.btn_undo.setText(tr("undo"))
+        self.btn_save.setText(tr("save"))
+        self.files_lbl.setText(tr("files"))
+        self.coord_label.setText(tr("coord_empty"))
+        self._update_status()
+
+    # ---------- slots / 槽 ----------
+    def _on_lang_changed(self, idx):
+        save_lang(self.lang_box.itemData(idx))
+        self._retranslate()
+
     def _on_mode_changed(self, idx):
         self.mode = ["polygon", "brush", "hsv"][idx]
         self.canvas.mode = self.mode
-        if self.mode != "hsv":      # 离开HSV模式时放弃待确认框选 / drop pending HSV region on mode switch
+        if self.mode != "hsv":      # drop pending HSV region on mode switch / 离开HSV模式放弃待确认框选
             self.cancel_hsv()
 
     def _on_target_changed(self, row):
         if 0 <= row < len(self.ids):
             self.target_id = self.ids[row]
             if self.hsv_region is not None:
-                self.render_overlay()   # 预览高亮用目标色 / preview highlight uses target color
+                self.render_overlay()   # preview highlight uses target color / 预览高亮用目标色
 
     def _on_source_changed(self, idx):
         self.source_filter = self.source_box.itemData(idx)
@@ -262,23 +285,22 @@ class MaskEditor(QtWidgets.QWidget):
             lo = self.sliders[ch + "_low"].value()
             hi = self.sliders[ch + "_high"].value()
             self.hsv_value_labels[ch].setText("%d - %d" % (lo, hi))
-        if self.hsv_region is not None:   # 实时预览框选区内的HSV命中 / live preview inside the region
+        if self.hsv_region is not None:   # live preview inside the region / 实时预览框选区内命中
             self.render_overlay()
 
     def on_mouse_pos(self, pos):
-        self.coord_label.setText("坐标 / XY: (%d, %d)" % (pos[0], pos[1]))
+        self.coord_label.setText(tr("coord") % (pos[0], pos[1]))
 
     def _on_file_changed(self, row):
         if self.dirty and self.mask is not None:
             resp = QtWidgets.QMessageBox.question(
-                self, "未保存 / Unsaved",
-                "当前图有未保存修改，是否保存？\nCurrent image has unsaved changes. Save now?",
+                self, tr("unsaved_title"), tr("unsaved_q"),
                 QtWidgets.QMessageBox.Save | QtWidgets.QMessageBox.Discard
                 | QtWidgets.QMessageBox.Cancel,
                 QtWidgets.QMessageBox.Save)
             if resp == QtWidgets.QMessageBox.Cancel:
                 self.file_list_widget.blockSignals(True)
-                self.file_list_widget.setCurrentRow(self.index)  # 退回原选中 / revert selection
+                self.file_list_widget.setCurrentRow(self.index)  # revert selection / 退回原选中
                 self.file_list_widget.blockSignals(False)
                 return
             if resp == QtWidgets.QMessageBox.Save:
@@ -286,27 +308,26 @@ class MaskEditor(QtWidgets.QWidget):
         self.index = row
         self.load_image()
 
-    # ---------- 编辑操作 / editing ----------
+    # ---------- editing / 编辑操作 ----------
     def on_polygon_committed(self, poly):
         if self.mask is None:
             return
         if self.mode == "hsv":
-            # HSV模式：先存框选区，调滑块实时预览，回车确认应用
             # HSV mode: store the region, preview live while sliders move, Enter applies
+            # HSV模式：先存框选区，调滑块实时预览，回车确认应用
             self.hsv_region = poly
             self.render_overlay()
-            self.status_label.setText(
-                "调整H/S/V预览，回车应用，Esc取消 / Adjust H/S/V to preview, Enter=apply, Esc=cancel")
+            self.status_label.setText(tr("hsv_status"))
             return
-        # polygon 模式：立即应用 / polygon mode: apply immediately
+        # polygon mode: apply immediately / polygon 模式：立即应用
         sel = polygon_selection(self.mask.shape, poly)
         rec = apply_selection(self.mask, sel, self.target_id, self.source_filter)
         self._after_edit(rec)
 
     def _hsv_region_selection(self):
-        """计算当前框选区内、命中HSV区间(并满足源类别限制)的像素布尔图。
-        Boolean map of pixels inside the region that match the HSV range
-        (and the source-class filter, if set)."""
+        """Boolean map of pixels inside the region that match the HSV range
+        (and the source-class filter, if set).
+        计算当前框选区内、命中HSV区间(并满足源类别限制)的像素布尔图。"""
         if self.hsv_region is None or self.mask is None:
             return None
         inside = polygon_selection(self.mask.shape, self.hsv_region)
@@ -324,16 +345,16 @@ class MaskEditor(QtWidgets.QWidget):
             return
         sel = self._hsv_region_selection()
         self.hsv_region = None
-        # sel 已含源类别限制，这里 source_filter 传 None 避免重复
         # sel already honors the source filter; pass None to avoid double filtering
+        # sel 已含源类别限制，这里 source_filter 传 None 避免重复
         rec = apply_selection(self.mask, sel, self.target_id, None)
         self._after_edit(rec)
         if rec is None:
-            self.render_overlay()   # 无命中也要清掉预览 / clear preview even with no hits
+            self.render_overlay()   # clear preview even with no hits / 无命中也要清掉预览
             self._update_status()
 
     def cancel_hsv(self):
-        self.canvas.cancel_drawing()   # 同时清除进行中的多边形 / also clears in-progress polygon
+        self.canvas.cancel_drawing()   # also clears in-progress polygon / 同时清除进行中的多边形
         if self.hsv_region is not None:
             self.hsv_region = None
             self.render_overlay()
@@ -348,7 +369,7 @@ class MaskEditor(QtWidgets.QWidget):
 
     def _after_edit(self, rec):
         if rec is None:
-            return  # 无实际改动 / nothing actually changed
+            return  # nothing actually changed / 无实际改动
         self.undo.push(rec)
         self.dirty = True
         self.render_overlay()
@@ -370,14 +391,13 @@ class MaskEditor(QtWidgets.QWidget):
         out_path = os.path.join(OUT_MASK_DIR, base)
         if not imwrite_unicode(out_path, self.mask):
             QtWidgets.QMessageBox.critical(
-                self, "错误 / Error",
-                f"保存失败 / Save failed: {out_path}")
+                self, tr("err_title"), tr("save_failed") % out_path)
             return
         self.dirty = False
         self._update_status()
-        self.status_label.setText("已保存 / Saved: " + base)
+        self.status_label.setText(tr("saved") % base)
 
-    # ---------- 加载与渲染 / loading & rendering ----------
+    # ---------- loading & rendering / 加载与渲染 ----------
     def load_image(self):
         if not self.file_list or not (0 <= self.index < len(self.file_list)):
             return
@@ -385,15 +405,14 @@ class MaskEditor(QtWidgets.QWidget):
         img = imread_unicode(os.path.join(IMG_DIR, fname), cv2.IMREAD_COLOR)
         if img is None:
             QtWidgets.QMessageBox.critical(
-                self, "错误 / Error",
-                f"无法读取图像 / Cannot read image: {fname}")
+                self, tr("err_title"), tr("cannot_read") % fname)
             return
         self.raw_image = img
         self.raw_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
         h, w = img.shape[:2]
 
-        # 优先加载已修正版，否则原始掩膜，否则全 0
         # Prefer the corrected mask, then the original mask, else all zeros
+        # 优先加载已修正版，否则原始掩膜，否则全 0
         base = os.path.splitext(fname)[0] + ".png"
         out_path = os.path.join(OUT_MASK_DIR, base)
         src_path = os.path.join(SRC_MASK_DIR, base)
@@ -404,35 +423,30 @@ class MaskEditor(QtWidgets.QWidget):
         else:
             mask = None
             QtWidgets.QMessageBox.information(
-                self, "提示 / Info",
-                f"未找到掩膜，新建空白 / Mask not found, creating blank: {base}")
+                self, tr("info_title"), tr("mask_not_found") % base)
 
         if mask is None:
             mask = np.zeros((h, w), dtype=np.uint8)
         if mask.ndim == 3:
             import sys as _sys
-            print("警告: 掩膜 %s 为多通道，已取第0通道 / "
-                  "Warning: mask %s has multiple channels, using channel 0" % (base, base),
-                  file=_sys.stderr)
+            print(tr("multichannel_warn") % base, file=_sys.stderr)
             mask = mask[:, :, 0]
         if mask.shape[:2] != (h, w):
             QtWidgets.QMessageBox.warning(
-                self, "尺寸不符 / Size mismatch",
-                f"{base} 掩膜尺寸与图像不符，已按原图缩放。\n"
-                f"Mask size differs from image; resized to match.")
+                self, tr("mismatch_title"), tr("mismatch_text") % base)
             mask = cv2.resize(mask, (w, h), interpolation=cv2.INTER_NEAREST)
         self.mask = mask.astype(np.uint8)
 
-        # 全分辨率渲染（不再下采样），保证放大清晰
         # Render at full resolution (no downsampling) so zooming stays sharp
+        # 全分辨率渲染（不再下采样），保证放大清晰
         self.display_image = img
         self.undo.clear()
         self.hsv_region = None
         self.dirty = False
         self.render_overlay()
         self._update_status()
-        # 新图加载后自适应窗口（仅切图时重置缩放，编辑时不重置）
         # Fit to window after loading (zoom resets on image switch, not on edits)
+        # 新图加载后自适应窗口（仅切图时重置缩放，编辑时不重置）
         QtCore.QTimer.singleShot(0, self.canvas.fit_to_window)
 
     def render_overlay(self):
@@ -443,8 +457,8 @@ class MaskEditor(QtWidgets.QWidget):
         if self.show_raw_cb.isChecked():
             overlay = self.display_image.copy()
         else:
-            # mask 与原图同分辨率，直接上色叠加（背景 0 保持原图）
             # mask matches image resolution; colorize and blend (background 0 keeps the photo)
+            # mask 与原图同分辨率，直接上色叠加（背景 0 保持原图）
             color = colorize_mask(self.mask, self.palette_bgr)
             alpha = self.alpha_slider.value() / 100.0
             overlay = self.display_image.copy()
@@ -453,13 +467,13 @@ class MaskEditor(QtWidgets.QWidget):
                        + alpha * color[fg].astype(np.float32))
             overlay[fg] = blended.astype(np.uint8)
 
-        # HSV待确认框选：高亮命中像素 + 画出框选轮廓（预览，不改 mask）
         # Pending HSV region: highlight matching pixels + draw the outline (preview only)
+        # HSV待确认框选：高亮命中像素 + 画出框选轮廓（预览，不改 mask）
         if self.hsv_region is not None:
             prev = self._hsv_region_selection()
             if prev is not None and prev.any():
                 tcol = self.palette_bgr.get(self.target_id, (255, 255, 255))
-                overlay[prev] = tcol           # 命中像素高亮为目标色 / hits shown in target color
+                overlay[prev] = tcol           # hits shown in target color / 命中像素高亮为目标色
             poly = np.array(self.hsv_region, dtype=np.int32)
             thick = max(2, int(min(dh, dw) / 400))
             cv2.polylines(overlay, [poly], True, (0, 0, 255), thick, cv2.LINE_AA)
@@ -472,7 +486,7 @@ class MaskEditor(QtWidgets.QWidget):
         if not self.file_list:
             self.status_label.setText("—")
             return
-        star = " *未保存/unsaved" if self.dirty else ""
+        star = tr("unsaved_star") if self.dirty else ""
         self.status_label.setText("%d/%d: %s%s" %
                                   (self.index + 1, len(self.file_list),
                                    self.file_list[self.index], star))
